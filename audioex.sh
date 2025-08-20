@@ -13,13 +13,14 @@ NC='\033[0m' # No Color
 
 # Function to display usage
 show_usage() {
-    echo "Usage: $0 [-s stream_number] [-i] input.m2ts|input.vob [output.wav]"
+    echo "Usage: $0 [-s stream_number] [-i] [-y] input.m2ts|input.vob [output.wav]"
     echo ""
     echo "Extract PCM audio from Blu-ray .m2ts and DVD .VOB files without re-encoding"
     echo ""
     echo "Options:"
     echo "  -s NUM        Select audio stream number (0-based index, default: 0)"
     echo "  -i            Show stream information only (no extraction)"
+    echo "  -y            Force overwrite existing output file without prompting"
     echo ""
     echo "Arguments:"
     echo "  input.m2ts    Input .m2ts file (Blu-ray)"
@@ -31,6 +32,7 @@ show_usage() {
     echo "  $0 VTS_01_1.VOB"
     echo "  $0 -s 1 movie.m2ts audio.wav"
     echo "  $0 -i movie.m2ts                    # Show stream info only"
+    echo "  $0 -y movie.m2ts output.wav         # Force overwrite without prompt"
     echo "  $0 -s 0 VTS_01_1.VOB japanese.wav"
     exit 1
 }
@@ -216,11 +218,12 @@ main() {
     local stream_number=0
     local stream_specified=false
     local info_only=false
+    local force_overwrite=false
     local input_file=""
     local output_file=""
     
     # Parse command line options
-    while getopts "s:ih" opt; do
+    while getopts "s:iyh" opt; do
         case $opt in
             s)
                 stream_number="$OPTARG"
@@ -235,6 +238,9 @@ main() {
                 ;;
             i)
                 info_only=true
+                ;;
+            y)
+                force_overwrite=true
                 ;;
             h)
                 show_usage
@@ -285,7 +291,7 @@ main() {
         if [[ $stream_number -eq 0 ]]; then
             output_file="${input_file%.*}.wav"
         else
-            output_file="${input_file%.*}_stream${stream_number}.wav"
+            output_file="${input_file%.*}_${stream_number}.wav"
         fi
     fi
     
@@ -294,12 +300,16 @@ main() {
     
     # Check if output file already exists
     if [[ -f "$output_file" ]]; then
-        echo -e "${YELLOW}Warning: Output file '$output_file' already exists${NC}"
-        read -p "Overwrite? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Aborted."
-            exit 1
+        if [[ "$force_overwrite" == "true" ]]; then
+            echo -e "${YELLOW}Overwriting existing file '$output_file'${NC}"
+        else
+            echo -e "${YELLOW}Warning: Output file '$output_file' already exists${NC}"
+            read -p "Overwrite? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Aborted."
+                exit 1
+            fi
         fi
     fi
     
