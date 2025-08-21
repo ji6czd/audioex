@@ -13,26 +13,26 @@ NC='\033[0m' # No Color
 
 # Function to display usage
 show_usage() {
-    echo "Usage: $0 [-s stream_number] [-i] [-y] input.m2ts|input.vob [output.wav]"
+    echo "使用方法: $0 [-s ストリーム番号] [-i] [-y] input.m2ts|input.vob [output.wav]"
     echo ""
-    echo "Extract PCM audio from Blu-ray .m2ts and DVD .VOB files without re-encoding"
+    echo "Blu-rayの.m2tsファイルとDVDの.VOBファイルから音声を無変換で抽出します"
     echo ""
-    echo "Options:"
-    echo "  -s NUM        Select audio stream number (0-based index, default: 0)"
-    echo "  -i            Show stream information only (no extraction)"
-    echo "  -y            Force overwrite existing output file without prompting"
+    echo "オプション:"
+    echo "  -s NUM        音声ストリーム番号を選択 (0から開始、デフォルト: 0)"
+    echo "  -i            ストリーム情報のみを表示 (抽出は行わない)"
+    echo "  -y            既存の出力ファイルを確認なしで強制上書き"
     echo ""
-    echo "Arguments:"
-    echo "  input.m2ts    Input .m2ts file (Blu-ray)"
-    echo "  input.vob     Input .VOB file (DVD)"
-    echo "  output.wav    Output audio file (optional, defaults to input filename with .wav extension)"
+    echo "引数:"
+    echo "  input.m2ts    入力する.m2tsファイル (Blu-ray)"
+    echo "  input.vob     入力する.VOBファイル (DVD)"
+    echo "  output.wav    出力音声ファイル (省略可、デフォルトは入力ファイル名に.wav拡張子)"
     echo ""
-    echo "Examples:"
+    echo "使用例:"
     echo "  $0 movie.m2ts"
     echo "  $0 VTS_01_1.VOB"
     echo "  $0 -s 1 movie.m2ts audio.wav"
-    echo "  $0 -i movie.m2ts                    # Show stream info only"
-    echo "  $0 -y movie.m2ts output.wav         # Force overwrite without prompt"
+    echo "  $0 -i movie.m2ts                    # ストリーム情報のみ表示"
+    echo "  $0 -y movie.m2ts output.wav         # 確認なしで強制上書き"
     echo "  $0 -s 0 VTS_01_1.VOB japanese.wav"
     exit 1
 }
@@ -40,8 +40,8 @@ show_usage() {
 # Function to check if ffmpeg is installed
 check_ffmpeg() {
     if ! command -v ffmpeg &> /dev/null; then
-        echo -e "${RED}Error: ffmpeg is not installed or not in PATH${NC}"
-        echo "Please install ffmpeg first:"
+        echo -e "${RED}エラー: ffmpegがインストールされていないか、PATHに含まれていません${NC}"
+        echo "まず、ffmpegをインストールしてください:"
         echo "  macOS: brew install ffmpeg"
         echo "  Ubuntu/Debian: sudo apt install ffmpeg"
         echo "  CentOS/RHEL: sudo yum install ffmpeg"
@@ -54,7 +54,7 @@ validate_input() {
     local input_file="$1"
     
     if [[ ! -f "$input_file" ]]; then
-        echo -e "${RED}Error: Input file '$input_file' does not exist${NC}"
+        echo -e "${RED}エラー: 入力ファイル '$input_file' が存在しません${NC}"
         exit 1
     fi
     
@@ -62,9 +62,9 @@ validate_input() {
     file_extension=$(echo "$file_extension" | tr '[:upper:]' '[:lower:]') # Convert to lowercase
     
     if [[ "$file_extension" != "m2ts" && "$file_extension" != "vob" ]]; then
-        echo -e "${YELLOW}Warning: Input file does not have .m2ts or .VOB extension${NC}"
-        echo "Supported formats: .m2ts (Blu-ray), .VOB (DVD)"
-        echo "Continuing anyway..."
+        echo -e "${YELLOW}警告: 入力ファイルの拡張子が.m2tsまたは.VOBではありません${NC}"
+        echo "対応フォーマット: .m2ts (Blu-ray), .VOB (DVD)"
+        echo "とりあえず続行します..."
     fi
 }
 
@@ -73,24 +73,24 @@ get_audio_info() {
     local input_file="$1"
     local info_only="${2:-false}"
     
-    echo -e "${YELLOW}Analyzing audio streams in '$input_file'...${NC}"
+    echo -e "${YELLOW}'$input_file' の音声ストリームを解析中...${NC}"
     echo ""
     
     # Get detailed audio stream information with stream index
     local stream_info
     stream_info=$(ffprobe -v quiet -select_streams a -show_entries stream=index,codec_name,channels,sample_rate,bits_per_sample,bits_per_raw_sample,channel_layout -of csv=p=0:nk=1 "$input_file" 2>/dev/null) || {
-        echo -e "${RED}Error: Could not analyze audio streams in '$input_file'${NC}"
+        echo -e "${RED}エラー: '$input_file' の音声ストリームを解析できませんでした${NC}"
         exit 1
     }
     
     if [[ -z "$stream_info" ]]; then
-        echo -e "${RED}Error: No audio streams found in '$input_file'${NC}"
+        echo -e "${RED}エラー: '$input_file' に音声ストリームが見つかりません${NC}"
         exit 1
     fi
     
     # Remove duplicate lines and filter valid entries
     stream_info=$(echo "$stream_info" | sort -u | grep -E '^[0-9]+,' | head -10)
-    echo -e "${GREEN}Available audio streams:${NC}"
+    echo -e "${GREEN}利用可能な音声ストリーム:${NC}"
     local stream_count=0
     while IFS=',' read -r index codec_name sample_rate channels channel_layout bits_per_sample bits_per_raw_sample; do
         # Skip empty lines and validate index
@@ -102,23 +102,23 @@ get_audio_info() {
             actual_bits="$bits_per_raw_sample"
         fi
         
-        echo "  Stream $stream_count (index $index): $codec_name, ${channels}ch, ${sample_rate}Hz, ${actual_bits:-N/A}bit, ${channel_layout:-N/A}"
+        echo "  ストリーム $stream_count (インデックス $index): $codec_name, ${channels}ch, ${sample_rate}Hz, ${actual_bits:-N/A}bit, ${channel_layout:-N/A}"
         ((stream_count++))
     done <<< "$stream_info"
     
     echo ""
-    echo -e "${GREEN}Total audio streams: $stream_count${NC}"
+    echo -e "${GREEN}音声ストリーム総数: $stream_count${NC}"
     
     # If info_only mode, show additional details and exit
     if [[ "$info_only" == "true" ]]; then
         echo ""
-        echo -e "${YELLOW}Detailed stream information:${NC}"
+        echo -e "${YELLOW}詳細ストリーム情報:${NC}"
         
         # Get detailed stream information for each audio stream
         local stream_idx=0
         while [[ $stream_idx -lt $stream_count ]]; do
             echo ""
-            echo -e "${GREEN}--- Stream $stream_idx ---${NC}"
+            echo -e "${GREEN}--- ストリーム $stream_idx ---${NC}"
             
             # Get stream info more reliably
             local detailed_info
@@ -141,14 +141,14 @@ get_audio_info() {
                 [[ "$duration" != "N/A" && -n "$duration" ]] && echo "  duration=$duration"
                 [[ "$bit_rate" != "N/A" && -n "$bit_rate" ]] && echo "  bit_rate=$bit_rate"
             else
-                echo "  Unable to get detailed info for stream $stream_idx"
+                echo "  ストリーム $stream_idx の詳細情報を取得できませんでした"
             fi
             
             ((stream_idx++))
         done
         
         echo ""
-        echo -e "${GREEN}Use -s <stream_number> to select a specific stream for extraction.${NC}"
+        echo -e "${GREEN}特定のストリームを抽出するには -s <ストリーム番号> を使用してください。${NC}"
         exit 0
     fi
     
@@ -165,51 +165,51 @@ extract_audio() {
     local file_extension="${input_file##*.}"
     file_extension=$(echo "$file_extension" | tr '[:upper:]' '[:lower:]') # Convert to lowercase
     
-    echo -e "${GREEN}Extracting audio from stream $stream_number in '$input_file' to '$output_file'...${NC}"
+    echo -e "${GREEN}'$input_file' のストリーム $stream_number から '$output_file' に音声を抽出中...${NC}"
     
     # Get codec info for the specific stream
     local codec_info
     codec_info=$(ffprobe -v quiet -select_streams a:$stream_number -show_entries stream=codec_name -of csv=p=0:nk=1 "$input_file" 2>/dev/null | head -1)
     
-    echo -e "${YELLOW}Source codec: ${codec_info:-unknown}${NC}"
+    echo -e "${YELLOW}ソースコーデック: ${codec_info:-不明}${NC}"
     
     # Different strategies based on file type and codec
     if [[ "$file_extension" == "vob" ]]; then
         # DVD VOB files - often contain AC3, MP2, or PCM
-        echo -e "${YELLOW}Processing DVD VOB file...${NC}"
+        echo -e "${YELLOW}DVD VOBファイルを処理中...${NC}"
         
         # First, try to copy without re-encoding
         if ffmpeg -i "$input_file" -map "0:a:$stream_number" -c:a copy -y "$output_file" 2>/dev/null; then
-            echo -e "${GREEN}Audio extracted successfully without re-encoding${NC}"
+            echo -e "${GREEN}音声が無変換で正常に抽出されました${NC}"
         else
-            echo -e "${YELLOW}Direct copy failed, converting to PCM...${NC}"
+            echo -e "${YELLOW}直接コピーに失敗しました。PCMに変換しています...${NC}"
             # For DVD, use 16-bit PCM as it's more compatible
             ffmpeg -i "$input_file" -map "0:a:$stream_number" -c:a pcm_s16le -ar 48000 -y "$output_file" || {
-                echo -e "${RED}Error: Failed to extract audio from stream $stream_number${NC}"
+                echo -e "${RED}エラー: ストリーム $stream_number からの音声抽出に失敗しました${NC}"
                 exit 1
             }
-            echo -e "${GREEN}Audio extracted successfully as 16-bit PCM${NC}"
+            echo -e "${GREEN}音声が16-bit PCMとして正常に抽出されました${NC}"
         fi
     else
         # Blu-ray M2TS files - often contain high-quality PCM, DTS, or AC3
-        echo -e "${YELLOW}Processing Blu-ray M2TS file...${NC}"
+        echo -e "${YELLOW}Blu-ray M2TSファイルを処理中...${NC}"
         
         # First, try to copy without re-encoding
         if ffmpeg -i "$input_file" -map "0:a:$stream_number" -c:a copy -y "$output_file" 2>/dev/null; then
-            echo -e "${GREEN}Audio extracted successfully without re-encoding${NC}"
+            echo -e "${GREEN}音声が無変換で正常に抽出されました${NC}"
         else
-            echo -e "${YELLOW}Direct copy failed, converting to high-quality PCM...${NC}"
+            echo -e "${YELLOW}直接コピーに失敗しました。高品質PCMに変換しています...${NC}"
             # For Blu-ray, use 24-bit PCM to maintain quality
             ffmpeg -i "$input_file" -map "0:a:$stream_number" -c:a pcm_s24le -y "$output_file" || {
-                echo -e "${RED}Error: Failed to extract audio from stream $stream_number${NC}"
+                echo -e "${RED}エラー: ストリーム $stream_number からの音声抽出に失敗しました${NC}"
                 exit 1
             }
-            echo -e "${GREEN}Audio extracted successfully as 24-bit PCM${NC}"
+            echo -e "${GREEN}音声が24-bit PCMとして正常に抽出されました${NC}"
         fi
     fi
     
     # Display output file info
-    echo -e "${GREEN}Output file info:${NC}"
+    echo -e "${GREEN}出力ファイル情報:${NC}"
     ffprobe -v quiet -show_entries format=filename,size,duration -show_entries stream=codec_name,channels,sample_rate,bit_rate -of default=noprint_wrappers=1 "$output_file" 2>/dev/null || true
 }
 
@@ -229,8 +229,8 @@ main() {
                 stream_number="$OPTARG"
                 stream_specified=true
                 if ! [[ "$stream_number" =~ ^[0-9]+$ ]]; then
-                    echo -e "${RED}Error: Stream number must be a non-negative integer${NC}"
-                    echo -e "${YELLOW}Showing available streams instead...${NC}"
+                    echo -e "${RED}エラー: ストリーム番号は非負の整数である必要があります${NC}"
+                    echo -e "${YELLOW}代わりに利用可能なストリームを表示します...${NC}"
                     echo ""
                     info_only=true
                     stream_specified=false
@@ -246,7 +246,7 @@ main() {
                 show_usage
                 ;;
             \?)
-                echo -e "${RED}Invalid option: -$OPTARG${NC}" >&2
+                echo -e "${RED}無効なオプション: -$OPTARG${NC}" >&2
                 show_usage
                 ;;
         esac
@@ -279,8 +279,8 @@ main() {
     
     # Validate stream number if it was specified
     if [[ "$stream_specified" == "true" && $stream_number -ge $stream_count ]]; then
-        echo -e "${RED}Error: Stream number $stream_number does not exist. Available streams: 0-$((stream_count-1))${NC}"
-        echo -e "${YELLOW}Showing detailed stream information:${NC}"
+        echo -e "${RED}エラー: ストリーム番号 $stream_number は存在しません。利用可能なストリーム: 0-$((stream_count-1))${NC}"
+        echo -e "${YELLOW}詳細ストリーム情報を表示します:${NC}"
         echo ""
         get_audio_info "$input_file" "true"
         exit 1
@@ -295,7 +295,7 @@ main() {
         fi
     fi
     
-    echo -e "${GREEN}Selected audio stream: $stream_number${NC}"
+    echo -e "${GREEN}選択された音声ストリーム: $stream_number${NC}"
     echo ""
     
     # Check if output file already exists
